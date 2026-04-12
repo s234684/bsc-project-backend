@@ -1,5 +1,6 @@
 package com.annabelle.backend.service;
 
+import com.annabelle.backend.dto.QuestionnaireResponse;
 import com.annabelle.backend.model.Questionnaire;
 import com.annabelle.backend.model.RoleName;
 import com.annabelle.backend.model.Tenant;
@@ -33,7 +34,7 @@ public class QuestionnaireService {
         this.userRepository = userRepository;
     }
 
-    public Questionnaire createQuestionnaire(String questionnaireTitle) {
+    public QuestionnaireResponse createQuestionnaire(String questionnaireTitle) {
         authorizationService.requireAuthenticated();
         authorizationService.requireRole(RoleName.INSTRUCTOR);
 
@@ -46,22 +47,37 @@ public class QuestionnaireService {
                 .orElseThrow(() -> new IllegalStateException("User not found"));
 
         Questionnaire questionnaire = new Questionnaire(tenant, questionnaireTitle, creator);
-        return questionnaireRepository.save(questionnaire);
+        Questionnaire saved = questionnaireRepository.save(questionnaire);
+
+        return toResponse(saved);
     }
 
-    public List<Questionnaire> getAllQuestionnairesForCurrentTenant() {
+    public List<QuestionnaireResponse> getAllQuestionnairesForCurrentTenant() {
         authorizationService.requireAuthenticated();
         CurrentUser currentUser = authorizationService.currentUser();
-        return questionnaireRepository.findAllByTenant_Id(currentUser.getTenantId());
+
+        return questionnaireRepository.findAllByTenant_Id(currentUser.getTenantId())
+                .stream()
+                .map(this::toResponse)
+                .toList();
     }
 
-    public Questionnaire getQuestionnaireById(Long questionnaireId) {
+    public QuestionnaireResponse getQuestionnaireById(Long questionnaireId) {
         authorizationService.requireAuthenticated();
 
         Questionnaire questionnaire = questionnaireRepository.findById(questionnaireId)
                 .orElseThrow(() -> new IllegalStateException("Questionnaire not found"));
 
         authorizationService.requireTenant(questionnaire.getTenant().getId());
-        return questionnaire;
+        return toResponse(questionnaire);
+    }
+
+    private QuestionnaireResponse toResponse(Questionnaire questionnaire) {
+        return new QuestionnaireResponse(
+                questionnaire.getId(),
+                questionnaire.getTitle(),
+                questionnaire.getTenant().getId(),
+                questionnaire.getCreator() != null ? questionnaire.getCreator().getId() : null
+        );
     }
 }

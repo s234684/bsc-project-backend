@@ -1,6 +1,6 @@
 package com.annabelle.backend.controller;
 
-import com.annabelle.backend.model.Questionnaire;
+import com.annabelle.backend.dto.QuestionnaireResponse;
 import com.annabelle.backend.service.QuestionnaireService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -19,18 +19,18 @@ public class QuestionnaireController {
     }
 
     @GetMapping
-    public ResponseEntity<List<Questionnaire>> list() {
+    public ResponseEntity<List<QuestionnaireResponse>> list() {
         return ResponseEntity.ok(questionnaireService.getAllQuestionnairesForCurrentTenant());
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Questionnaire> byId(@PathVariable Long id) {
+    public ResponseEntity<QuestionnaireResponse> byId(@PathVariable Long id) {
         return ResponseEntity.ok(questionnaireService.getQuestionnaireById(id));
     }
 
     @PostMapping
-    public ResponseEntity<Questionnaire> create(@RequestBody CreateQuestionnaireRequest request) {
-        Questionnaire created = questionnaireService.createQuestionnaire(request.title());
+    public ResponseEntity<QuestionnaireResponse> create(@RequestBody CreateQuestionnaireRequest request) {
+        QuestionnaireResponse created = questionnaireService.createQuestionnaire(request.title());
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
