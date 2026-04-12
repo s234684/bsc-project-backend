@@ -34,4 +34,8 @@ public class Submission {
         this.user = user;
         this.answer = answer;
     }
+
+    public Submission getSubmission(Long  submissionId) {
+        return this;
+    }
 }
