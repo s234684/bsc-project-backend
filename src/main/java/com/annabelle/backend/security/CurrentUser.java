@@ -10,12 +10,14 @@ import java.util.UUID;
 public class CurrentUser {
     private final Long userId;
     private final UUID tenantId;
+    private final String tenantName;
     private final String email;
     private final Set<RoleName> roles;
 
-    public CurrentUser(Long userId, UUID tenantId, String email, Set<RoleName> roles) {
+    public CurrentUser(Long userId, UUID tenantId, String tenantName, String email, Set<RoleName> roles) {
         this.userId = userId;
         this.tenantId = tenantId;
+        this.tenantName = tenantName;
         this.email = email;
         this.roles = roles == null ? new HashSet<>() : new HashSet<>(roles);
     }
@@ -26,6 +28,10 @@ public class CurrentUser {
 
     public UUID getTenantId() {
         return tenantId;
+    }
+
+    public String getTenantName() {
+        return tenantName;
     }
 
     public String getEmail() {

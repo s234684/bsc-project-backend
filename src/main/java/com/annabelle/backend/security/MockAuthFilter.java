@@ -41,6 +41,7 @@ public class MockAuthFilter extends OncePerRequestFilter {
                     CurrentUser currentUser = new CurrentUser(
                             user.getId(),
                             user.getTenant() != null ? user.getTenant().getId() : null,
+                            user.getTenant() != null ? user.getTenant().getName() : null,
                             user.getEmail(),
                             roleNames
                     );
