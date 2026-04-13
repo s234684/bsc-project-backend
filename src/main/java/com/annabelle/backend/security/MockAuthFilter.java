@@ -1,7 +1,6 @@
 package com.annabelle.backend.security;
 
 import com.annabelle.backend.model.RoleName;
-import com.annabelle.backend.model.User;
 import com.annabelle.backend.repository.UserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;

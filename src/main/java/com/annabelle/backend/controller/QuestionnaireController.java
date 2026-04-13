@@ -1,5 +1,6 @@
 package com.annabelle.backend.controller;
 
+import com.annabelle.backend.dto.QuestionnaireCreateRequest;
 import com.annabelle.backend.dto.QuestionnaireResponse;
 import com.annabelle.backend.service.QuestionnaireService;
 import org.springframework.http.HttpStatus;
@@ -29,11 +30,8 @@ public class QuestionnaireController {
     }
 
     @PostMapping
-    public ResponseEntity<QuestionnaireResponse> create(@RequestBody CreateQuestionnaireRequest request) {
-        QuestionnaireResponse created = questionnaireService.createQuestionnaire(request.title());
+    public ResponseEntity<QuestionnaireResponse> create(@RequestBody QuestionnaireCreateRequest request) {
+        QuestionnaireResponse created = questionnaireService.createQuestionnaire(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
-    }
-
-    public record CreateQuestionnaireRequest(String title) {
     }
 }

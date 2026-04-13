@@ -1,0 +1,9 @@
+{
+  "questions": [
+    { "key": "q1", "text": "Do you use multi-factor authentication?" },
+    { "key": "q2", "text": "How often are security updates applied?" },
+    { "key": "q3", "text": "Do employees receive security awareness training?" },
+    { "key": "q4", "text": "Is sensitive data encrypted at rest?" },
+    { "key": "q5", "text": "Do you have an incident response plan?" }
+  ]
+}

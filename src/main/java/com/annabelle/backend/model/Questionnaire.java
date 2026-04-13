@@ -9,7 +9,6 @@ public class Questionnaire {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // potentially change to many to many ? bc there might be one basic questionnaire for everyone
     @ManyToOne
     @JoinColumn(name = "tenant_id", nullable = false)
     private Tenant tenant;
@@ -21,13 +20,18 @@ public class Questionnaire {
     @JoinColumn(name = "created_by")
     private User creator;
 
+    @Lob
+    @Column(name = "definition_json", nullable = false, columnDefinition = "TEXT")
+    private String definitionJson;
+
     public Questionnaire() {
     }
 
-    public Questionnaire(Tenant tenant, String title, User creator) {
+    public Questionnaire(Tenant tenant, String title, User creator, String definitionJson) {
         this.tenant = tenant;
         this.title = title;
         this.creator = creator;
+        this.definitionJson = definitionJson;
     }
 
     public Long getId() {
@@ -56,5 +60,13 @@ public class Questionnaire {
 
     public void setCreator(User creator) {
         this.creator = creator;
+    }
+
+    public String getDefinitionJson() {
+        return definitionJson;
+    }
+
+    public void setDefinitionJson(String definitionJson) {
+        this.definitionJson = definitionJson;
     }
 }

@@ -7,12 +7,14 @@ public class QuestionnaireResponse {
     private final String title;
     private final UUID tenantId;
     private final Long creatorId;
+    private final String definitionJson;
 
-    public QuestionnaireResponse(Long id, String title, UUID tenantId, Long creatorId) {
+    public QuestionnaireResponse(Long id, String title, UUID tenantId, Long creatorId, String definitionJson) {
         this.id = id;
         this.title = title;
         this.tenantId = tenantId;
         this.creatorId = creatorId;
+        this.definitionJson = definitionJson;
     }
 
     public Long getId() {
@@ -29,5 +31,9 @@ public class QuestionnaireResponse {
 
     public Long getCreatorId() {
         return creatorId;
+    }
+
+    public String getDefinitionJson() {
+        return definitionJson;
     }
 }

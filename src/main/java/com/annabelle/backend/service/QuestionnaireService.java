@@ -1,5 +1,6 @@
 package com.annabelle.backend.service;
 
+import com.annabelle.backend.dto.QuestionnaireCreateRequest;
 import com.annabelle.backend.dto.QuestionnaireResponse;
 import com.annabelle.backend.model.Questionnaire;
 import com.annabelle.backend.model.RoleName;
@@ -10,6 +11,8 @@ import com.annabelle.backend.repository.TenantRepository;
 import com.annabelle.backend.repository.UserRepository;
 import com.annabelle.backend.security.AuthorizationService;
 import com.annabelle.backend.security.CurrentUser;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -21,22 +24,27 @@ public class QuestionnaireService {
     private final AuthorizationService authorizationService;
     private final TenantRepository tenantRepository;
     private final UserRepository userRepository;
+    private final ObjectMapper objectMapper;
 
     public QuestionnaireService(
             QuestionnaireRepository questionnaireRepository,
             AuthorizationService authorizationService,
             TenantRepository tenantRepository,
-            UserRepository userRepository
+            UserRepository userRepository,
+            ObjectMapper objectMapper
     ) {
         this.questionnaireRepository = questionnaireRepository;
         this.authorizationService = authorizationService;
         this.tenantRepository = tenantRepository;
         this.userRepository = userRepository;
+        this.objectMapper = objectMapper;
     }
 
-    public QuestionnaireResponse createQuestionnaire(String questionnaireTitle) {
+    public QuestionnaireResponse createQuestionnaire(QuestionnaireCreateRequest request) {
         authorizationService.requireAuthenticated();
         authorizationService.requireRole(RoleName.INSTRUCTOR);
+
+        validateDefinitionJson(request.definitionJson());
 
         CurrentUser currentUser = authorizationService.currentUser();
 
@@ -46,9 +54,14 @@ public class QuestionnaireService {
         User creator = userRepository.findById(currentUser.getUserId())
                 .orElseThrow(() -> new IllegalStateException("User not found"));
 
-        Questionnaire questionnaire = new Questionnaire(tenant, questionnaireTitle, creator);
-        Questionnaire saved = questionnaireRepository.save(questionnaire);
+        Questionnaire questionnaire = new Questionnaire(
+                tenant,
+                request.title(),
+                creator,
+                request.definitionJson()
+        );
 
+        Questionnaire saved = questionnaireRepository.save(questionnaire);
         return toResponse(saved);
     }
 
@@ -72,12 +85,43 @@ public class QuestionnaireService {
         return toResponse(questionnaire);
     }
 
+    private void validateDefinitionJson(String definitionJson) {
+        if (definitionJson == null || definitionJson.isBlank()) {
+            throw new IllegalStateException("Questionnaire definition JSON must not be empty");
+        }
+
+        try {
+            JsonNode root = objectMapper.readTree(definitionJson);
+
+            JsonNode questions = root.get("questions");
+            if (questions == null || !questions.isArray() || questions.isEmpty()) {
+                throw new IllegalStateException("Questionnaire definition must contain a non-empty questions array");
+            }
+
+            for (JsonNode question : questions) {
+                JsonNode key = question.get("key");
+                JsonNode text = question.get("text");
+
+                if (key == null || key.asText().isBlank()) {
+                    throw new IllegalStateException("Each question must have a non-empty key");
+                }
+
+                if (text == null || text.asText().isBlank()) {
+                    throw new IllegalStateException("Each question must have a non-empty text");
+                }
+            }
+        } catch (Exception ex) {
+            throw new IllegalStateException("Invalid questionnaire definition JSON", ex);
+        }
+    }
+
     private QuestionnaireResponse toResponse(Questionnaire questionnaire) {
         return new QuestionnaireResponse(
                 questionnaire.getId(),
                 questionnaire.getTitle(),
                 questionnaire.getTenant().getId(),
-                questionnaire.getCreator() != null ? questionnaire.getCreator().getId() : null
+                questionnaire.getCreator() != null ? questionnaire.getCreator().getId() : null,
+                questionnaire.getDefinitionJson()
         );
     }
 }
