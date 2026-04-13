@@ -20,7 +20,6 @@ public class Questionnaire {
     @JoinColumn(name = "created_by")
     private User creator;
 
-    @Lob
     @Column(name = "definition_json", nullable = false, columnDefinition = "TEXT")
     private String definitionJson;
 
