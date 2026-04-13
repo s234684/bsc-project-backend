@@ -43,7 +43,7 @@ public class DefaultQuestionnaireInitializer implements ApplicationRunner {
             return;
         }
 
-        ClassPathResource resource = new ClassPathResource("default-questionnaire.json");
+        ClassPathResource resource = new ClassPathResource("questionnaire/default-questionnaire.json");
         try (InputStream inputStream = resource.getInputStream()) {
             String json = new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
 
