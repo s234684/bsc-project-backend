@@ -18,24 +18,44 @@ public class Submission {
     private Questionnaire questionnaire;
 
     // TODO: change this to one to one ? in the database or only one response per questionnaire
-    @ManyToOne
+    @OneToOne
     @JoinColumn(name = "user_id")
     private User user;
 
-    @Column(nullable = false)
-    private String answer;
+    @Column(name = "answer_json", nullable = false, columnDefinition = "TEXT")
+    private String answerJson;
 
     public Submission() {
     }
 
-    public Submission(Tenant tenant, Questionnaire questionnaire, User user, String answer) {
+    public Submission(Tenant tenant, Questionnaire questionnaire, User user, String answerJson) {
         this.tenant = tenant;
         this.questionnaire = questionnaire;
         this.user = user;
-        this.answer = answer;
+        this.answerJson = answerJson;
     }
 
     public Submission getSubmission(Long  submissionId) {
         return this;
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public Tenant getTenant() {
+        return tenant;
+    }
+
+    public Questionnaire getQuestionnaire() {
+        return questionnaire;
+    }
+
+    public User getUser() {
+        return user;
+    }
+
+    public String getAnswerJson() {
+        return answerJson;
     }
 }

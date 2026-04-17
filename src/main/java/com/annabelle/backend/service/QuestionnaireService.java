@@ -11,8 +11,6 @@ import com.annabelle.backend.repository.TenantRepository;
 import com.annabelle.backend.repository.UserRepository;
 import com.annabelle.backend.security.AuthorizationService;
 import com.annabelle.backend.security.CurrentUser;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -24,27 +22,28 @@ public class QuestionnaireService {
     private final AuthorizationService authorizationService;
     private final TenantRepository tenantRepository;
     private final UserRepository userRepository;
-    private final ObjectMapper objectMapper;
+    private final ValidationService validationService;
 
     public QuestionnaireService(
             QuestionnaireRepository questionnaireRepository,
             AuthorizationService authorizationService,
             TenantRepository tenantRepository,
             UserRepository userRepository,
-            ObjectMapper objectMapper
+           ValidationService validationService
     ) {
         this.questionnaireRepository = questionnaireRepository;
         this.authorizationService = authorizationService;
         this.tenantRepository = tenantRepository;
         this.userRepository = userRepository;
-        this.objectMapper = objectMapper;
+        this.validationService = validationService;
     }
 
     public QuestionnaireResponse createQuestionnaire(QuestionnaireCreateRequest request) {
         authorizationService.requireAuthenticated();
         authorizationService.requireRole(RoleName.INSTRUCTOR);
 
-        validateDefinitionJson(request.definitionJson());
+        validationService.validateQuestionnaireTitle(request.title());
+        validationService.validateDefinitionJson(request.definitionJson());
 
         CurrentUser currentUser = authorizationService.currentUser();
 
@@ -83,36 +82,6 @@ public class QuestionnaireService {
 
         authorizationService.requireTenant(questionnaire.getTenant().getId());
         return toResponse(questionnaire);
-    }
-
-    private void validateDefinitionJson(String definitionJson) {
-        if (definitionJson == null || definitionJson.isBlank()) {
-            throw new IllegalStateException("Questionnaire definition JSON must not be empty");
-        }
-
-        try {
-            JsonNode root = objectMapper.readTree(definitionJson);
-
-            JsonNode questions = root.get("questions");
-            if (questions == null || !questions.isArray() || questions.isEmpty()) {
-                throw new IllegalStateException("Questionnaire definition must contain a non-empty questions array");
-            }
-
-            for (JsonNode question : questions) {
-                JsonNode key = question.get("key");
-                JsonNode text = question.get("text");
-
-                if (key == null || key.asText().isBlank()) {
-                    throw new IllegalStateException("Each question must have a non-empty key");
-                }
-
-                if (text == null || text.asText().isBlank()) {
-                    throw new IllegalStateException("Each question must have a non-empty text");
-                }
-            }
-        } catch (Exception ex) {
-            throw new IllegalStateException("Invalid questionnaire definition JSON", ex);
-        }
     }
 
     private QuestionnaireResponse toResponse(Questionnaire questionnaire) {

@@ -10,4 +10,5 @@ import java.util.UUID;
 public interface QuestionnaireRepository extends JpaRepository<Questionnaire, Long> {
     List<Questionnaire> findAllByTenant_Id(UUID tenantId);
     Optional<Questionnaire> findByTitle(String title);
+    String findDefinitionJsonById(Long questionnaireId);
 }
