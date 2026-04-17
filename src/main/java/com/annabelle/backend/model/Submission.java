@@ -18,7 +18,7 @@ public class Submission {
     private Questionnaire questionnaire;
 
     // TODO: change this to one to one ? in the database or only one response per questionnaire
-    @OneToOne
+    @ManyToOne
     @JoinColumn(name = "user_id")
     private User user;
 

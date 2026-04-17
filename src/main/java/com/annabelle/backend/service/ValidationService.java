@@ -1,6 +1,7 @@
 package com.annabelle.backend.service;
 
 import com.annabelle.backend.repository.QuestionnaireRepository;
+import com.annabelle.backend.repository.SubmissionRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -16,10 +17,12 @@ public class ValidationService {
     private static final int MAX_TITLE_LENGTH = 200;
 
     private final QuestionnaireRepository questionnaireRepository;
+    private final SubmissionRepository submissionRepository;
     private final ObjectMapper objectMapper;
 
-    public ValidationService(QuestionnaireRepository questionnaireRepository, ObjectMapper objectMapper) {
+    public ValidationService(QuestionnaireRepository questionnaireRepository, SubmissionRepository submissionRepository, ObjectMapper objectMapper) {
         this.questionnaireRepository = questionnaireRepository;
+        this.submissionRepository = submissionRepository;
         this.objectMapper = objectMapper;
     }
 
@@ -35,6 +38,12 @@ public class ValidationService {
         }
     }
 
+    public void checkFirstSubmission(Long questionnaireId, Long userId) {
+        if (submissionRepository.findByQuestionnaire_IdAndUser_Id(questionnaireId, userId) != null){
+            throw new IllegalStateException("User has already submitted");
+        }
+
+    }
     public void validateSubmission(Long questionnaireId, String submissionJson) {
         String questionnaireJson = questionnaireRepository.findDefinitionJsonById(questionnaireId);
         if (questionnaireJson == null || questionnaireJson.isBlank()) {

@@ -8,5 +8,6 @@ import java.util.List;
 public interface SubmissionRepository extends JpaRepository<Submission, Long> {
     List<Submission> findAllByUser_Id(Long userId);
     List<Submission> findAllByQuestionnaire_Id(Long questionnaireId);
+    Submission findByQuestionnaire_IdAndUser_Id(Long questionnaireId, Long userId);
 
 }

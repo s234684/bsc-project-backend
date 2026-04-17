@@ -53,6 +53,7 @@ public class SubmissionService {
 
         authorizationService.requireTenant(questionnaire.getTenant().getId());
 
+        validationService.checkFirstSubmission(questionnaireId, currentUser.getUserId());
         validationService.validateSubmission(questionnaireId, submissionRequest.answerJson());
 
         Tenant tenant = tenantRepository.findById(currentUser.getTenantId())
