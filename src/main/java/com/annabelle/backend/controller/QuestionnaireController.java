@@ -3,6 +3,7 @@ package com.annabelle.backend.controller;
 import com.annabelle.backend.dto.QuestionnaireCreateRequest;
 import com.annabelle.backend.dto.QuestionnaireResponse;
 import com.annabelle.backend.service.QuestionnaireService;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -30,7 +31,7 @@ public class QuestionnaireController {
     }
 
     @PostMapping
-    public ResponseEntity<QuestionnaireResponse> create(@RequestBody QuestionnaireCreateRequest request) {
+    public ResponseEntity<QuestionnaireResponse> create(@Valid @RequestBody QuestionnaireCreateRequest request) {
         QuestionnaireResponse created = questionnaireService.createQuestionnaire(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }

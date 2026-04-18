@@ -1,10 +1,12 @@
 package com.annabelle.backend.service;
 
+import com.annabelle.backend.exception.ApiException;
 import com.annabelle.backend.repository.QuestionnaireRepository;
 import com.annabelle.backend.repository.SubmissionRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import java.util.HashSet;
@@ -28,126 +30,126 @@ public class ValidationService {
 
     public JsonNode parseIntoRoot(String jsonString) {
         if (jsonString == null || jsonString.isBlank()) {
-            throw new IllegalStateException("JSON must not be empty");
+            throw new ApiException(HttpStatus.BAD_REQUEST, "JSON must not be empty");
         }
 
         try {
             return objectMapper.readTree(jsonString);
         } catch (JsonProcessingException e) {
-            throw new IllegalStateException("Invalid JSON", e);
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Invalid JSON", e);
         }
     }
 
     public void checkFirstSubmission(Long questionnaireId, Long userId) {
         if (submissionRepository.findByQuestionnaire_IdAndUser_Id(questionnaireId, userId) != null){
-            throw new IllegalStateException("User has already submitted");
+            throw new ApiException(HttpStatus.CONFLICT, "User has already submitted");
         }
 
     }
     public void validateSubmission(Long questionnaireId, String submissionJson) {
         String questionnaireJson = questionnaireRepository.findDefinitionJsonById(questionnaireId);
         if (questionnaireJson == null || questionnaireJson.isBlank()) {
-            throw new IllegalStateException("Questionnaire not found or missing definition JSON");
+            throw new ApiException(HttpStatus.NOT_FOUND, "Questionnaire not found or missing definition JSON");
         }
 
         JsonNode submissionRoot = parseIntoRoot(submissionJson);
         JsonNode answers = submissionRoot.get("answers");
         if (answers == null || !answers.isArray()) {
-            throw new IllegalStateException("answers must be an array");
+            throw new ApiException(HttpStatus.BAD_REQUEST, "answers must be an array");
         }
         if (answers.isEmpty()) {
-            throw new IllegalStateException("answers must not be empty");
+            throw new ApiException(HttpStatus.BAD_REQUEST, "answers must not be empty");
         }
 
         JsonNode questionnaireRoot = parseIntoRoot(questionnaireJson);
         JsonNode questions = questionnaireRoot.get("questions");
         if (questions == null || !questions.isArray()) {
-            throw new IllegalStateException("questions must be an array");
+            throw new ApiException(HttpStatus.BAD_REQUEST, "questions must be an array");
         }
         if (questions.isEmpty()) {
-            throw new IllegalStateException("questions must not be empty");
+            throw new ApiException(HttpStatus.BAD_REQUEST, "questions must not be empty");
         }
 
         Set<String> answerKeys = extractKeys(answers, "answer");
         Set<String> questionKeys = extractKeys(questions, "question");
 
         if (!answerKeys.equals(questionKeys)) {
-            throw new IllegalStateException("answer keys do not match question keys");
+            throw new ApiException(HttpStatus.BAD_REQUEST, "answer keys do not match question keys");
         }
 
         for (JsonNode answer : answers) {
             if (answer == null || !answer.isObject()) {
-                throw new IllegalStateException("each answer must be an object");
+                throw new ApiException(HttpStatus.BAD_REQUEST, "each answer must be an object");
             }
 
             JsonNode value = answer.get("value");
             if (value == null || value.isNull()) {
-                throw new IllegalStateException("answer value is null");
+                throw new ApiException(HttpStatus.BAD_REQUEST, "answer value is null");
             }
             if (!value.isTextual()) {
-                throw new IllegalStateException("answer value must be a string");
+                throw new ApiException(HttpStatus.BAD_REQUEST, "answer value must be a string");
             }
 
             String answerText = value.asText();
             if (answerText.isBlank()) {
-                throw new IllegalStateException("answer value cannot be blank");
+                throw new ApiException(HttpStatus.BAD_REQUEST, "answer value cannot be blank");
             }
             if (answerText.length() > MAX_ANSWER_LENGTH) {
-                throw new IllegalStateException("answer value cannot be longer than " + MAX_ANSWER_LENGTH + " characters");
+                throw new ApiException(HttpStatus.BAD_REQUEST, "answer value cannot be longer than " + MAX_ANSWER_LENGTH + " characters");
             }
         }
     }
 
     public void validateDefinitionJson(String definitionJson) {
         if (definitionJson == null || definitionJson.isBlank()) {
-            throw new IllegalStateException("Questionnaire definition JSON must not be empty");
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Questionnaire definition JSON must not be empty");
         }
 
         JsonNode root = parseIntoRoot(definitionJson);
 
         JsonNode questions = root.get("questions");
         if (questions == null || !questions.isArray() || questions.isEmpty()) {
-            throw new IllegalStateException("Questionnaire definition must contain a non-empty questions array");
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Questionnaire definition must contain a non-empty questions array");
         }
 
         Set<String> questionKeys = new HashSet<>();
 
         for (JsonNode question : questions) {
             if (question == null || !question.isObject()) {
-                throw new IllegalStateException("each question must be an object");
+                throw new ApiException(HttpStatus.BAD_REQUEST, "each question must be an object");
             }
 
             JsonNode key = question.get("key");
             JsonNode text = question.get("text");
 
             if (key == null || key.isNull()) {
-                throw new IllegalStateException("Each question must have a non-empty key");
+                throw new ApiException(HttpStatus.BAD_REQUEST, "Each question must have a non-empty key");
             }
             if (!key.isTextual() || key.asText().isBlank()) {
-                throw new IllegalStateException("Each question must have a non-empty key");
+                throw new ApiException(HttpStatus.BAD_REQUEST, "Each question must have a non-empty key");
             }
 
             String keyText = key.asText();
             if (!questionKeys.add(keyText)) {
-                throw new IllegalStateException("duplicate question key: " + keyText);
+                throw new ApiException(HttpStatus.BAD_REQUEST, "duplicate question key: " + keyText);
             }
 
             if (text == null || text.isNull() || !text.isTextual() || text.asText().isBlank()) {
-                throw new IllegalStateException("Each question must have a non-empty text");
+                throw new ApiException(HttpStatus.BAD_REQUEST, "Each question must have a non-empty text");
             }
 
             if (text.asText().length() > MAX_QUESTION_LENGTH) {
-                throw new IllegalStateException("question text cannot be longer than " + MAX_QUESTION_LENGTH + " characters");
+                throw new ApiException(HttpStatus.BAD_REQUEST, "question text cannot be longer than " + MAX_QUESTION_LENGTH + " characters");
             }
         }
     }
 
     public void validateQuestionnaireTitle(String title) {
         if (title == null || title.isBlank()) {
-            throw new IllegalStateException("Questionnaire title must not be empty");
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Questionnaire title must not be empty");
         }
         if (title.length() > MAX_TITLE_LENGTH) {
-            throw new IllegalStateException("Questionnaire title cannot be longer than " + MAX_TITLE_LENGTH + " characters");
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Questionnaire title cannot be longer than " + MAX_TITLE_LENGTH + " characters");
         }
     }
 
@@ -156,24 +158,24 @@ public class ValidationService {
 
         for (JsonNode item : items) {
             if (item == null || !item.isObject()) {
-                throw new IllegalStateException("each " + itemType + " must be an object");
+                throw new ApiException(HttpStatus.BAD_REQUEST, "each " + itemType + " must be an object");
             }
 
             JsonNode key = item.get("key");
             if (key == null || key.isNull()) {
-                throw new IllegalStateException(itemType + " key is null");
+                throw new ApiException(HttpStatus.BAD_REQUEST, itemType + " key is null");
             }
             if (!key.isTextual()) {
-                throw new IllegalStateException(itemType + " key must be a string");
+                throw new ApiException(HttpStatus.BAD_REQUEST, itemType + " key must be a string");
             }
 
             String keyText = key.asText();
             if (keyText.isBlank()) {
-                throw new IllegalStateException(itemType + " key cannot be blank");
+                throw new ApiException(HttpStatus.BAD_REQUEST, itemType + " key cannot be blank");
             }
 
             if (!keys.add(keyText)) {
-                throw new IllegalStateException("duplicate " + itemType + " key: " + keyText);
+                throw new ApiException(HttpStatus.BAD_REQUEST, "duplicate " + itemType + " key: " + keyText);
             }
         }
 

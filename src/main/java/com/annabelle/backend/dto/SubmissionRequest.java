@@ -1,4 +1,6 @@
 package com.annabelle.backend.dto;
 
-public record SubmissionRequest(String answerJson) {
+import jakarta.validation.constraints.NotBlank;
+
+public record SubmissionRequest(@NotBlank String answerJson) {
 }

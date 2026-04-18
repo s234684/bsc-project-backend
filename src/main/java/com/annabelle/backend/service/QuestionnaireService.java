@@ -2,6 +2,7 @@ package com.annabelle.backend.service;
 
 import com.annabelle.backend.dto.QuestionnaireCreateRequest;
 import com.annabelle.backend.dto.QuestionnaireResponse;
+import com.annabelle.backend.exception.ApiException;
 import com.annabelle.backend.model.Questionnaire;
 import com.annabelle.backend.model.RoleName;
 import com.annabelle.backend.model.Tenant;
@@ -11,6 +12,7 @@ import com.annabelle.backend.repository.TenantRepository;
 import com.annabelle.backend.repository.UserRepository;
 import com.annabelle.backend.security.AuthorizationService;
 import com.annabelle.backend.security.CurrentUser;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -48,10 +50,10 @@ public class QuestionnaireService {
         CurrentUser currentUser = authorizationService.currentUser();
 
         Tenant tenant = tenantRepository.findById(currentUser.getTenantId())
-                .orElseThrow(() -> new IllegalStateException("Tenant not found"));
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Tenant not found"));
 
         User creator = userRepository.findById(currentUser.getUserId())
-                .orElseThrow(() -> new IllegalStateException("User not found"));
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "User not found"));
 
         Questionnaire questionnaire = new Questionnaire(
                 tenant,
@@ -78,7 +80,7 @@ public class QuestionnaireService {
         authorizationService.requireAuthenticated();
 
         Questionnaire questionnaire = questionnaireRepository.findById(questionnaireId)
-                .orElseThrow(() -> new IllegalStateException("Questionnaire not found"));
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Questionnaire not found"));
 
         authorizationService.requireTenant(questionnaire.getTenant().getId());
         return toResponse(questionnaire);

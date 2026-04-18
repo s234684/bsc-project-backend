@@ -2,6 +2,7 @@ package com.annabelle.backend.service;
 
 import com.annabelle.backend.dto.SubmissionRequest;
 import com.annabelle.backend.dto.SubmissionResponse;
+import com.annabelle.backend.exception.ApiException;
 import com.annabelle.backend.model.Questionnaire;
 import com.annabelle.backend.model.RoleName;
 import com.annabelle.backend.model.Submission;
@@ -13,6 +14,7 @@ import com.annabelle.backend.repository.TenantRepository;
 import com.annabelle.backend.repository.UserRepository;
 import com.annabelle.backend.security.AuthorizationService;
 import com.annabelle.backend.security.CurrentUser;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -49,7 +51,7 @@ public class SubmissionService {
         CurrentUser currentUser = authorizationService.currentUser();
 
         Questionnaire questionnaire = questionnaireRepository.findById(questionnaireId)
-                .orElseThrow(() -> new IllegalStateException("Questionnaire not found"));
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Questionnaire not found"));
 
         authorizationService.requireTenant(questionnaire.getTenant().getId());
 
@@ -57,10 +59,10 @@ public class SubmissionService {
         validationService.validateSubmission(questionnaireId, submissionRequest.answerJson());
 
         Tenant tenant = tenantRepository.findById(currentUser.getTenantId())
-                .orElseThrow(() -> new IllegalStateException("Tenant not found"));
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Tenant not found"));
 
         User user = userRepository.findById(currentUser.getUserId())
-                .orElseThrow(() -> new IllegalStateException("User not found"));
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "User not found"));
 
         Submission submission = new Submission(
                 tenant,
@@ -88,7 +90,7 @@ public class SubmissionService {
         authorizationService.requireRole(RoleName.MANAGER);
 
         Questionnaire questionnaire = questionnaireRepository.findById(questionnaireId)
-                .orElseThrow(() -> new IllegalStateException("Questionnaire not found"));
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Questionnaire not found"));
 
         authorizationService.requireTenant(questionnaire.getTenant().getId());
 

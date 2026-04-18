@@ -1,6 +1,8 @@
 package com.annabelle.backend.security;
 
+import com.annabelle.backend.exception.ApiException;
 import com.annabelle.backend.model.RoleName;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import java.util.UUID;
@@ -17,26 +19,26 @@ public class AuthorizationService {
     public CurrentUser currentUser() {
         CurrentUser user = currentUserHolder.getCurrentUser();
         if (user == null) {
-            throw new IllegalStateException("No mock user is set for the current request");
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "Authentication required");
         }
         return user;
     }
 
     public void requireRole(RoleName roleName) {
         if (!currentUser().hasRole(roleName)) {
-            throw new IllegalStateException("Access denied: missing role " + roleName);
+            throw new ApiException(HttpStatus.FORBIDDEN, "Access denied: missing role " + roleName);
         }
     }
 
     public void requireTenant(UUID tenantId) {
         if (!currentUser().isTenantUser(tenantId)) {
-            throw new IllegalStateException("Access denied: wrong tenant");
+            throw new ApiException(HttpStatus.FORBIDDEN, "Access denied: wrong tenant");
         }
     }
 
     public void requireAuthenticated() {
         if (currentUserHolder.getCurrentUser() == null) {
-            throw new IllegalStateException("Authentication required");
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "Authentication required");
         }
     }
 

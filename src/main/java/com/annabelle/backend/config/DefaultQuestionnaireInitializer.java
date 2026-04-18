@@ -2,12 +2,14 @@ package com.annabelle.backend.config;
 
 import com.annabelle.backend.model.Questionnaire;
 import com.annabelle.backend.model.Tenant;
+import com.annabelle.backend.exception.ApiException;
 import com.annabelle.backend.repository.QuestionnaireRepository;
 import com.annabelle.backend.repository.TenantRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 
 import java.io.InputStream;
@@ -41,7 +43,7 @@ public class DefaultQuestionnaireInitializer implements ApplicationRunner {
 
             Tenant tenant = tenantRepository.findAll().stream()
                     .findFirst()
-                    .orElseThrow(() -> new IllegalStateException("No tenant exists to attach default questionnaire"));
+                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "No tenant exists to attach default questionnaire"));
 
             Questionnaire questionnaire = questionnaireRepository.findByTitle(DEFAULT_TITLE)
                     .orElseGet(Questionnaire::new);

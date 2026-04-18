@@ -6,6 +6,7 @@ import com.annabelle.backend.dto.SubmissionRequest;
 import com.annabelle.backend.dto.SubmissionResponse;
 import com.annabelle.backend.service.QuestionnaireService;
 import com.annabelle.backend.service.SubmissionService;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -24,7 +25,7 @@ public class SubmissionController {
     @PostMapping
     public ResponseEntity<SubmissionResponse> create(
             @PathVariable Long questionnaireId,
-            @RequestBody SubmissionRequest request
+            @Valid @RequestBody SubmissionRequest request
     ) {
         SubmissionResponse created = submissionService.createSubmission(questionnaireId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
