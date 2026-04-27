@@ -28,6 +28,7 @@ public class SubmissionService {
     private final UserRepository userRepository;
     private final SubmissionRepository submissionRepository;
     private final ValidationService validationService;
+    private final GapProfileService gapProfileService;
 
     public SubmissionService(
             AuthorizationService authorizationService,
@@ -35,7 +36,8 @@ public class SubmissionService {
             QuestionnaireRepository questionnaireRepository,
             UserRepository userRepository,
             SubmissionRepository submissionRepository,
-            ValidationService validationService
+            ValidationService validationService,
+            GapProfileService gapProfileService
     ) {
         this.authorizationService = authorizationService;
         this.tenantRepository = tenantRepository;
@@ -43,6 +45,7 @@ public class SubmissionService {
         this.userRepository = userRepository;
         this.submissionRepository = submissionRepository;
         this.validationService = validationService;
+        this.gapProfileService = gapProfileService;
     }
 
     public SubmissionResponse createSubmission(Long questionnaireId, SubmissionRequest submissionRequest) {
@@ -72,6 +75,8 @@ public class SubmissionService {
         );
 
         Submission saved = submissionRepository.save(submission);
+        gapProfileService.createForSubmission(saved);
+
         return toResponse(saved);
     }
 
@@ -87,7 +92,7 @@ public class SubmissionService {
 
     public List<SubmissionResponse> listQuestionnaireSubmissions(Long questionnaireId) {
         authorizationService.requireAuthenticated();
-        authorizationService.requireRole(RoleName.MANAGER);
+        authorizationService.requireRole(RoleName.INSTRUCTOR);
 
         Questionnaire questionnaire = questionnaireRepository.findById(questionnaireId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Questionnaire not found"));
