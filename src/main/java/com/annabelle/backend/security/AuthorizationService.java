@@ -5,6 +5,7 @@ import com.annabelle.backend.model.RoleName;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
+import java.util.Arrays;
 import java.util.UUID;
 
 @Service
@@ -42,5 +43,39 @@ public class AuthorizationService {
         }
     }
 
+    public void requireAnyRole(RoleName... roleNames) {
+        CurrentUser user = currentUser();
+
+        boolean hasAllowedRole = Arrays.stream(roleNames)
+                .anyMatch(user::hasRole);
+
+        if (!hasAllowedRole) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Access denied: missing required role");
+        }
+    }
+
+    public void requireOwner(Long ownerUserId) {
+        CurrentUser user = currentUser();
+
+        if (ownerUserId == null || !ownerUserId.equals(user.getUserId())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Access denied: not resource owner");
+        }
+    }
+
+    public void requireOwnerOrAnyRole(Long ownerUserId, RoleName... roleNames) {
+        CurrentUser user = currentUser();
+
+        boolean isOwner = ownerUserId != null && ownerUserId.equals(user.getUserId());
+        boolean hasAllowedRole = Arrays.stream(roleNames)
+                .anyMatch(user::hasRole);
+
+        if (!isOwner && !hasAllowedRole) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Access denied");
+        }
+    }
+
+    public CurrentUser currentUserOrNull() {
+        return currentUserHolder.getCurrentUser();
+    }
 
 }

@@ -3,10 +3,7 @@ package com.annabelle.backend.service;
 import com.annabelle.backend.dto.QuestionnaireCreateRequest;
 import com.annabelle.backend.dto.QuestionnaireResponse;
 import com.annabelle.backend.exception.ApiException;
-import com.annabelle.backend.model.Questionnaire;
-import com.annabelle.backend.model.RoleName;
-import com.annabelle.backend.model.Tenant;
-import com.annabelle.backend.model.User;
+import com.annabelle.backend.model.*;
 import com.annabelle.backend.repository.QuestionnaireRepository;
 import com.annabelle.backend.repository.TenantRepository;
 import com.annabelle.backend.repository.UserRepository;
@@ -25,45 +22,63 @@ public class QuestionnaireService {
     private final TenantRepository tenantRepository;
     private final UserRepository userRepository;
     private final ValidationService validationService;
+    private final AuditService auditService;
 
     public QuestionnaireService(
             QuestionnaireRepository questionnaireRepository,
             AuthorizationService authorizationService,
             TenantRepository tenantRepository,
             UserRepository userRepository,
-           ValidationService validationService
+           ValidationService validationService,
+            AuditService auditService
     ) {
         this.questionnaireRepository = questionnaireRepository;
         this.authorizationService = authorizationService;
         this.tenantRepository = tenantRepository;
         this.userRepository = userRepository;
         this.validationService = validationService;
+        this.auditService = auditService;
     }
 
     public QuestionnaireResponse createQuestionnaire(QuestionnaireCreateRequest request) {
-        authorizationService.requireAuthenticated();
-        authorizationService.requireRole(RoleName.INSTRUCTOR);
+        try {
+            authorizationService.requireAuthenticated();
+            authorizationService.requireRole(RoleName.INSTRUCTOR);
 
-        validationService.validateQuestionnaireTitle(request.title());
-        validationService.validateDefinitionJson(request.definitionJson());
+            validationService.validateQuestionnaireTitle(request.title());
+            validationService.validateDefinitionJson(request.definitionJson());
 
-        CurrentUser currentUser = authorizationService.currentUser();
+            CurrentUser currentUser = authorizationService.currentUser();
 
-        Tenant tenant = tenantRepository.findById(currentUser.getTenantId())
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Tenant not found"));
+            Tenant tenant = tenantRepository.findById(currentUser.getTenantId())
+                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Tenant not found"));
 
-        User creator = userRepository.findById(currentUser.getUserId())
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "User not found"));
+            User creator = userRepository.findById(currentUser.getUserId())
+                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "User not found"));
 
-        Questionnaire questionnaire = new Questionnaire(
-                tenant,
-                request.title(),
-                creator,
-                request.definitionJson()
-        );
+            Questionnaire questionnaire = new Questionnaire(
+                    tenant,
+                    request.title(),
+                    creator,
+                    request.definitionJson()
+            );
 
-        Questionnaire saved = questionnaireRepository.save(questionnaire);
-        return toResponse(saved);
+            Questionnaire saved = questionnaireRepository.save(questionnaire);
+
+            auditService.logSuccess(creator, AuditAction.QUESTIONNAIRE_CREATED);
+
+            return toResponse(saved);
+        } catch (ApiException ex) {
+            if (isAuthorizationFailure(ex)) {
+                auditService.logDenied(
+                    authorizationService.currentUserOrNull(),
+                    AuditAction.QUESTIONNAIRE_CREATED,
+                    ex.getMessage()
+                );
+            }
+
+            throw ex;
+        }
     }
 
     public List<QuestionnaireResponse> getAllQuestionnairesForCurrentTenant() {
@@ -77,13 +92,24 @@ public class QuestionnaireService {
     }
 
     public QuestionnaireResponse getQuestionnaireById(Long questionnaireId) {
-        authorizationService.requireAuthenticated();
+        try {
+            authorizationService.requireAuthenticated();
 
-        Questionnaire questionnaire = questionnaireRepository.findById(questionnaireId)
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Questionnaire not found"));
+            Questionnaire questionnaire = questionnaireRepository.findById(questionnaireId)
+                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Questionnaire not found"));
 
-        authorizationService.requireTenant(questionnaire.getTenant().getId());
-        return toResponse(questionnaire);
+            authorizationService.requireTenant(questionnaire.getTenant().getId());
+            return toResponse(questionnaire);
+        } catch (ApiException ex) {
+            if (isAuthorizationFailure(ex)) {
+                auditService.logDenied(
+                        authorizationService.currentUserOrNull(),
+                        AuditAction.CROSS_TENANT_ACCESS_DENIED,
+                        ex.getMessage()
+                );
+            }
+            throw ex;
+        }
     }
 
     private QuestionnaireResponse toResponse(Questionnaire questionnaire) {
@@ -94,5 +120,9 @@ public class QuestionnaireService {
                 questionnaire.getCreator() != null ? questionnaire.getCreator().getId() : null,
                 questionnaire.getDefinitionJson()
         );
+    }
+
+    private boolean isAuthorizationFailure(ApiException ex) {
+        return ex.getStatus() == HttpStatus.UNAUTHORIZED || ex.getStatus() == HttpStatus.FORBIDDEN;
     }
 }

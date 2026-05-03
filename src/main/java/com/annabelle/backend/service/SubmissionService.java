@@ -3,11 +3,7 @@ package com.annabelle.backend.service;
 import com.annabelle.backend.dto.SubmissionRequest;
 import com.annabelle.backend.dto.SubmissionResponse;
 import com.annabelle.backend.exception.ApiException;
-import com.annabelle.backend.model.Questionnaire;
-import com.annabelle.backend.model.RoleName;
-import com.annabelle.backend.model.Submission;
-import com.annabelle.backend.model.Tenant;
-import com.annabelle.backend.model.User;
+import com.annabelle.backend.model.*;
 import com.annabelle.backend.repository.QuestionnaireRepository;
 import com.annabelle.backend.repository.SubmissionRepository;
 import com.annabelle.backend.repository.TenantRepository;
@@ -29,6 +25,7 @@ public class SubmissionService {
     private final SubmissionRepository submissionRepository;
     private final ValidationService validationService;
     private final GapProfileService gapProfileService;
+    private final AuditService auditService;
 
     public SubmissionService(
             AuthorizationService authorizationService,
@@ -37,7 +34,8 @@ public class SubmissionService {
             UserRepository userRepository,
             SubmissionRepository submissionRepository,
             ValidationService validationService,
-            GapProfileService gapProfileService
+            GapProfileService gapProfileService,
+            AuditService auditService
     ) {
         this.authorizationService = authorizationService;
         this.tenantRepository = tenantRepository;
@@ -46,38 +44,54 @@ public class SubmissionService {
         this.submissionRepository = submissionRepository;
         this.validationService = validationService;
         this.gapProfileService = gapProfileService;
+        this.auditService = auditService;
     }
 
     public SubmissionResponse createSubmission(Long questionnaireId, SubmissionRequest submissionRequest) {
-        authorizationService.requireAuthenticated();
+        try {
+            authorizationService.requireAuthenticated();
 
-        CurrentUser currentUser = authorizationService.currentUser();
+            CurrentUser currentUser = authorizationService.currentUser();
 
-        Questionnaire questionnaire = questionnaireRepository.findById(questionnaireId)
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Questionnaire not found"));
+            Questionnaire questionnaire = questionnaireRepository.findById(questionnaireId)
+                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Questionnaire not found"));
 
-        authorizationService.requireTenant(questionnaire.getTenant().getId());
+            authorizationService.requireTenant(questionnaire.getTenant().getId());
 
-        validationService.checkFirstSubmission(questionnaireId, currentUser.getUserId());
-        validationService.validateSubmission(questionnaireId, submissionRequest.answerJson());
+            validationService.checkFirstSubmission(questionnaireId, currentUser.getUserId());
+            validationService.validateSubmission(questionnaireId, submissionRequest.answerJson());
 
-        Tenant tenant = tenantRepository.findById(currentUser.getTenantId())
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Tenant not found"));
+            Tenant tenant = tenantRepository.findById(currentUser.getTenantId())
+                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Tenant not found"));
 
-        User user = userRepository.findById(currentUser.getUserId())
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "User not found"));
+            User user = userRepository.findById(currentUser.getUserId())
+                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "User not found"));
 
-        Submission submission = new Submission(
-                tenant,
-                questionnaire,
-                user,
-                submissionRequest.answerJson()
-        );
+            Submission submission = new Submission(
+                    tenant,
+                    questionnaire,
+                    user,
+                    submissionRequest.answerJson()
+            );
 
-        Submission saved = submissionRepository.save(submission);
-        gapProfileService.createForSubmission(saved);
+            Submission saved = submissionRepository.save(submission);
 
-        return toResponse(saved);
+            gapProfileService.createForSubmission(saved);
+
+            auditService.logSuccess(user, AuditAction.SUBMISSION_CREATED);
+
+            return toResponse(saved);
+        } catch (ApiException ex) {
+            if (isAuthorizationFailure(ex)) {
+                auditService.logDenied(
+                        authorizationService.currentUserOrNull(),
+                        AuditAction.SUBMISSION_CREATED,
+                        ex.getMessage()
+                );
+            }
+
+            throw ex;
+        }
     }
 
     public List<SubmissionResponse> listUserSubmissions() {
@@ -91,18 +105,29 @@ public class SubmissionService {
     }
 
     public List<SubmissionResponse> listQuestionnaireSubmissions(Long questionnaireId) {
-        authorizationService.requireAuthenticated();
-        authorizationService.requireRole(RoleName.INSTRUCTOR);
+        try {
+            authorizationService.requireAuthenticated();
+            authorizationService.requireRole(RoleName.INSTRUCTOR);
 
-        Questionnaire questionnaire = questionnaireRepository.findById(questionnaireId)
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Questionnaire not found"));
+            Questionnaire questionnaire = questionnaireRepository.findById(questionnaireId)
+                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Questionnaire not found"));
 
-        authorizationService.requireTenant(questionnaire.getTenant().getId());
+            authorizationService.requireTenant(questionnaire.getTenant().getId());
 
-        return submissionRepository.findAllByQuestionnaire_Id(questionnaireId)
-                .stream()
-                .map(this::toResponse)
-                .toList();
+            return submissionRepository.findAllByQuestionnaire_Id(questionnaireId)
+                    .stream()
+                    .map(this::toResponse)
+                    .toList();
+        } catch (ApiException ex) {
+            if (isAuthorizationFailure(ex)) {
+                auditService.logDenied(
+                        authorizationService.currentUserOrNull(),
+                        AuditAction.AUTHORIZATION_DENIED,
+                        ex.getMessage()
+                );
+            }
+            throw ex;
+        }
     }
 
     private SubmissionResponse toResponse(Submission submission) {
@@ -113,5 +138,9 @@ public class SubmissionService {
                 submission.getQuestionnaire().getTenant().getId(),
                 submission.getAnswerJson()
         );
+    }
+
+    private boolean isAuthorizationFailure(ApiException ex) {
+        return ex.getStatus() == HttpStatus.UNAUTHORIZED || ex.getStatus() == HttpStatus.FORBIDDEN;
     }
 }

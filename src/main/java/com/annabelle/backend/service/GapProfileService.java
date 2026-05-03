@@ -2,13 +2,10 @@ package com.annabelle.backend.service;
 
 import com.annabelle.backend.dto.GapProfileResponse;
 import com.annabelle.backend.exception.ApiException;
-import com.annabelle.backend.model.GapCategory;
-import com.annabelle.backend.model.GapProfile;
-import com.annabelle.backend.model.Questionnaire;
-import com.annabelle.backend.model.RoleName;
-import com.annabelle.backend.model.Submission;
+import com.annabelle.backend.model.*;
 import com.annabelle.backend.repository.GapProfileRepository;
 import com.annabelle.backend.repository.QuestionnaireRepository;
+import com.annabelle.backend.repository.UserRepository;
 import com.annabelle.backend.security.AuthorizationService;
 import com.annabelle.backend.security.CurrentUser;
 import org.springframework.http.HttpStatus;
@@ -25,15 +22,19 @@ public class GapProfileService {
     private final GapProfileRepository gapProfileRepository;
     private final QuestionnaireRepository questionnaireRepository;
     private final AuthorizationService authorizationService;
+    private final AuditService auditService;
+    private final UserRepository userRepository;
 
     public GapProfileService(
             GapProfileRepository gapProfileRepository,
             QuestionnaireRepository questionnaireRepository,
-            AuthorizationService authorizationService
+            AuthorizationService authorizationService, AuditService auditService, UserRepository userRepository
     ) {
         this.gapProfileRepository = gapProfileRepository;
         this.questionnaireRepository = questionnaireRepository;
         this.authorizationService = authorizationService;
+        this.auditService = auditService;
+        this.userRepository = userRepository;
     }
 
     public GapProfile createForSubmission(Submission submission) {
@@ -57,70 +58,114 @@ public class GapProfileService {
     }
 
     public List<GapProfileResponse> listQuestionnaireGapProfiles(Long questionnaireId) {
-        authorizationService.requireAuthenticated();
-        CurrentUser currentUser = authorizationService.currentUser();
+        try {
+            authorizationService.requireAuthenticated();
+            authorizationService.requireAnyRole(RoleName.MANAGER, RoleName.INSTRUCTOR);
 
-        boolean canViewTenantProfiles = currentUser.hasRole(RoleName.MANAGER)
-                || currentUser.hasRole(RoleName.INSTRUCTOR);
+            CurrentUser currentUser = authorizationService.currentUser();
+            User user = currentUserEntity();
 
-        if (!canViewTenantProfiles) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "Access denied");
+            Questionnaire questionnaire = questionnaireRepository.findById(questionnaireId)
+                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Questionnaire not found"));
+
+            authorizationService.requireTenant(questionnaire.getTenant().getId());
+
+            List<GapProfileResponse> responses = gapProfileRepository.findAllByQuestionnaire_IdAndTenant_Id(
+                            questionnaireId,
+                            currentUser.getTenantId()
+                    )
+                    .stream()
+                    .map(this::toResponse)
+                    .toList();
+
+            auditService.logSuccess(user, AuditAction.GAP_PROFILE_VIEWED);
+
+            return responses;
+        } catch (ApiException ex) {
+            if (isAuthorizationFailure(ex)) {
+                auditService.logDenied(
+                        authorizationService.currentUserOrNull(),
+                        AuditAction.GAP_PROFILE_VIEWED,
+                        ex.getMessage()
+                );
+            }
+            throw ex;
         }
-
-        Questionnaire questionnaire = questionnaireRepository.findById(questionnaireId)
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Questionnaire not found"));
-
-        authorizationService.requireTenant(questionnaire.getTenant().getId());
-
-        return gapProfileRepository.findAllByQuestionnaire_IdAndTenant_Id(
-                        questionnaireId,
-                        currentUser.getTenantId()
-                )
-                .stream()
-                .map(this::toResponse)
-                .toList();
     }
 
     public GapProfileResponse getOwnGapProfile(Long questionnaireId) {
-        authorizationService.requireAuthenticated();
-        authorizationService.requireRole(RoleName.PARTICIPANT);
+        try {
+            authorizationService.requireAuthenticated();
+            authorizationService.requireRole(RoleName.PARTICIPANT);
 
-        CurrentUser currentUser = authorizationService.currentUser();
+            CurrentUser currentUser = authorizationService.currentUser();
+            User user = currentUserEntity();
 
-        Questionnaire questionnaire = questionnaireRepository.findById(questionnaireId)
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Questionnaire not found"));
+            Questionnaire questionnaire = questionnaireRepository.findById(questionnaireId)
+                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Questionnaire not found"));
 
-        authorizationService.requireTenant(questionnaire.getTenant().getId());
+            authorizationService.requireTenant(questionnaire.getTenant().getId());
 
-        GapProfile gapProfile = gapProfileRepository.findByQuestionnaire_IdAndParticipant_IdAndTenant_Id(
-                        questionnaireId,
-                        currentUser.getUserId(),
-                        currentUser.getTenantId()
-                )
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Gap profile not found"));
+            GapProfile gapProfile = gapProfileRepository.findByQuestionnaire_IdAndParticipant_IdAndTenant_Id(
+                            questionnaireId,
+                            currentUser.getUserId(),
+                            currentUser.getTenantId()
+                    )
+                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Gap profile not found"));
 
-        return toResponse(gapProfile);
+            auditService.logSuccess(user, AuditAction.GAP_PROFILE_VIEWED);
+
+            return toResponse(gapProfile);
+        } catch (ApiException ex) {
+            if (isAuthorizationFailure(ex)) {
+                auditService.logDenied(
+                        authorizationService.currentUserOrNull(),
+                        AuditAction.GAP_PROFILE_VIEWED,
+                        ex.getMessage()
+                );
+            }
+            throw ex;
+        }
     }
 
     public GapProfileResponse getGapProfile(Long gapProfileId) {
-        authorizationService.requireAuthenticated();
+        try {
+            authorizationService.requireAuthenticated();
+
+            CurrentUser currentUser = authorizationService.currentUser();
+            User user = currentUserEntity();
+
+            GapProfile gapProfile = gapProfileRepository.findByIdAndTenant_Id(
+                            gapProfileId,
+                            currentUser.getTenantId()
+                    )
+                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Gap profile not found"));
+
+            authorizationService.requireOwnerOrAnyRole(
+                    gapProfile.getParticipant().getId(),
+                    RoleName.MANAGER,
+                    RoleName.INSTRUCTOR
+            );
+
+            auditService.logSuccess(user, AuditAction.GAP_PROFILE_VIEWED);
+
+            return toResponse(gapProfile);
+        } catch (ApiException ex) {
+            if (isAuthorizationFailure(ex)){
+            auditService.logDenied(
+                    authorizationService.currentUserOrNull(),
+                    AuditAction.GAP_PROFILE_VIEWED,
+                    ex.getMessage()
+            );}
+            throw ex;
+        }
+    }
+
+    private User currentUserEntity() {
         CurrentUser currentUser = authorizationService.currentUser();
 
-        GapProfile gapProfile = gapProfileRepository.findByIdAndTenant_Id(
-                        gapProfileId,
-                        currentUser.getTenantId()
-                )
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Gap profile not found"));
-
-        boolean isOwner = gapProfile.getParticipant().getId().equals(currentUser.getUserId());
-        boolean canViewTenantProfiles = currentUser.hasRole(RoleName.MANAGER)
-                || currentUser.hasRole(RoleName.INSTRUCTOR);
-
-        if (!isOwner && !canViewTenantProfiles) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "Access denied");
-        }
-
-        return toResponse(gapProfile);
+        return userRepository.findById(currentUser.getUserId())
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "User not found"));
     }
 
     private GapCategory categorize(double gapValue) {
@@ -139,6 +184,7 @@ public class GapProfileService {
         return new GapProfileResponse(
                 gapProfile.getId(),
                 gapProfile.getParticipant().getId(),
+                gapProfile.getParticipant().getEmail(),
                 gapProfile.getQuestionnaire().getId(),
                 gapProfile.getTenant().getId(),
                 gapProfile.getObservedLevel(),
@@ -147,5 +193,9 @@ public class GapProfileService {
                 gapProfile.getGapCategory(),
                 gapProfile.getCreatedAt()
         );
+    }
+
+    private boolean isAuthorizationFailure(ApiException ex) {
+        return ex.getStatus() == HttpStatus.UNAUTHORIZED || ex.getStatus() == HttpStatus.FORBIDDEN;
     }
 }

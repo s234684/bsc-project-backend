@@ -8,6 +8,7 @@ import java.util.UUID;
 public record GapProfileResponse(
         Long id,
         Long participantId,
+        String participantEmail,
         Long questionnaireId,
         UUID tenantId,
         double observedLevel,
