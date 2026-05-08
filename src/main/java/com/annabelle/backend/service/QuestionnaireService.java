@@ -9,8 +9,10 @@ import com.annabelle.backend.repository.TenantRepository;
 import com.annabelle.backend.repository.UserRepository;
 import com.annabelle.backend.security.AuthorizationService;
 import com.annabelle.backend.security.CurrentUser;
+import com.annabelle.backend.security.RlsContextService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -23,14 +25,15 @@ public class QuestionnaireService {
     private final UserRepository userRepository;
     private final ValidationService validationService;
     private final AuditService auditService;
+    private final RlsContextService rlsContextService;
 
     public QuestionnaireService(
             QuestionnaireRepository questionnaireRepository,
             AuthorizationService authorizationService,
             TenantRepository tenantRepository,
             UserRepository userRepository,
-           ValidationService validationService,
-            AuditService auditService
+            ValidationService validationService,
+            AuditService auditService, RlsContextService rlsContextService
     ) {
         this.questionnaireRepository = questionnaireRepository;
         this.authorizationService = authorizationService;
@@ -38,13 +41,15 @@ public class QuestionnaireService {
         this.userRepository = userRepository;
         this.validationService = validationService;
         this.auditService = auditService;
+        this.rlsContextService = rlsContextService;
     }
 
+    @Transactional
     public QuestionnaireResponse createQuestionnaire(QuestionnaireCreateRequest request) {
         try {
             authorizationService.requireAuthenticated();
             authorizationService.requireRole(RoleName.INSTRUCTOR);
-
+            rlsContextService.setTenant();
             validationService.validateQuestionnaireTitle(request.title());
             validationService.validateDefinitionJson(request.definitionJson());
 
@@ -81,8 +86,11 @@ public class QuestionnaireService {
         }
     }
 
+    @Transactional(readOnly = true)
     public List<QuestionnaireResponse> getAllQuestionnairesForCurrentTenant() {
         authorizationService.requireAuthenticated();
+        rlsContextService.setTenant();
+
         CurrentUser currentUser = authorizationService.currentUser();
 
         return questionnaireRepository.findAllByTenant_Id(currentUser.getTenantId())
@@ -91,9 +99,11 @@ public class QuestionnaireService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
     public QuestionnaireResponse getQuestionnaireById(Long questionnaireId) {
         try {
             authorizationService.requireAuthenticated();
+            rlsContextService.setTenant();
 
             Questionnaire questionnaire = questionnaireRepository.findById(questionnaireId)
                     .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Questionnaire not found"));

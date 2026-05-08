@@ -10,8 +10,10 @@ import com.annabelle.backend.repository.TenantRepository;
 import com.annabelle.backend.repository.UserRepository;
 import com.annabelle.backend.security.AuthorizationService;
 import com.annabelle.backend.security.CurrentUser;
+import com.annabelle.backend.security.RlsContextService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -26,6 +28,7 @@ public class SubmissionService {
     private final ValidationService validationService;
     private final GapProfileService gapProfileService;
     private final AuditService auditService;
+    private final RlsContextService rlsContextService;
 
     public SubmissionService(
             AuthorizationService authorizationService,
@@ -35,7 +38,7 @@ public class SubmissionService {
             SubmissionRepository submissionRepository,
             ValidationService validationService,
             GapProfileService gapProfileService,
-            AuditService auditService
+            AuditService auditService, RlsContextService rlsContextService
     ) {
         this.authorizationService = authorizationService;
         this.tenantRepository = tenantRepository;
@@ -45,12 +48,14 @@ public class SubmissionService {
         this.validationService = validationService;
         this.gapProfileService = gapProfileService;
         this.auditService = auditService;
+        this.rlsContextService = rlsContextService;
     }
 
+    @Transactional
     public SubmissionResponse createSubmission(Long questionnaireId, SubmissionRequest submissionRequest) {
         try {
             authorizationService.requireAuthenticated();
-
+            rlsContextService.setTenant();
             CurrentUser currentUser = authorizationService.currentUser();
 
             Questionnaire questionnaire = questionnaireRepository.findById(questionnaireId)
@@ -94,8 +99,10 @@ public class SubmissionService {
         }
     }
 
+    @Transactional(readOnly = true)
     public List<SubmissionResponse> listUserSubmissions() {
         authorizationService.requireAuthenticated();
+        rlsContextService.setTenant();
         CurrentUser currentUser = authorizationService.currentUser();
 
         return submissionRepository.findAllByUser_Id(currentUser.getUserId())
@@ -104,10 +111,12 @@ public class SubmissionService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
     public List<SubmissionResponse> listQuestionnaireSubmissions(Long questionnaireId) {
         try {
             authorizationService.requireAuthenticated();
             authorizationService.requireRole(RoleName.INSTRUCTOR);
+            rlsContextService.setTenant();
 
             Questionnaire questionnaire = questionnaireRepository.findById(questionnaireId)
                     .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Questionnaire not found"));

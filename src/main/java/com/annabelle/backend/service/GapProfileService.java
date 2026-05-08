@@ -8,8 +8,10 @@ import com.annabelle.backend.repository.QuestionnaireRepository;
 import com.annabelle.backend.repository.UserRepository;
 import com.annabelle.backend.security.AuthorizationService;
 import com.annabelle.backend.security.CurrentUser;
+import com.annabelle.backend.security.RlsContextService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
@@ -24,20 +26,24 @@ public class GapProfileService {
     private final AuthorizationService authorizationService;
     private final AuditService auditService;
     private final UserRepository userRepository;
+    private final RlsContextService rlsContextService;
 
     public GapProfileService(
             GapProfileRepository gapProfileRepository,
             QuestionnaireRepository questionnaireRepository,
-            AuthorizationService authorizationService, AuditService auditService, UserRepository userRepository
+            AuthorizationService authorizationService, AuditService auditService, UserRepository userRepository, RlsContextService rlsContextService
     ) {
         this.gapProfileRepository = gapProfileRepository;
         this.questionnaireRepository = questionnaireRepository;
         this.authorizationService = authorizationService;
         this.auditService = auditService;
         this.userRepository = userRepository;
+        this.rlsContextService = rlsContextService;
     }
 
+
     public GapProfile createForSubmission(Submission submission) {
+        rlsContextService.setTenant();  
         double observedLevel = ThreadLocalRandom.current().nextDouble(1.0, 5.0);
         double gapValue = TARGET_LEVEL - observedLevel;
         GapCategory gapCategory = categorize(gapValue);
@@ -57,8 +63,10 @@ public class GapProfileService {
         return gapProfileRepository.save(gapProfile);
     }
 
+    @Transactional(readOnly = true)
     public List<GapProfileResponse> listQuestionnaireGapProfiles(Long questionnaireId) {
         try {
+            rlsContextService.setTenant();
             authorizationService.requireAuthenticated();
             authorizationService.requireAnyRole(RoleName.MANAGER, RoleName.INSTRUCTOR);
 
@@ -69,7 +77,6 @@ public class GapProfileService {
                     .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Questionnaire not found"));
 
             authorizationService.requireTenant(questionnaire.getTenant().getId());
-
             List<GapProfileResponse> responses = gapProfileRepository.findAllByQuestionnaire_IdAndTenant_Id(
                             questionnaireId,
                             currentUser.getTenantId()
@@ -92,9 +99,10 @@ public class GapProfileService {
             throw ex;
         }
     }
-
+    @Transactional(readOnly = true)
     public GapProfileResponse getOwnGapProfile(Long questionnaireId) {
         try {
+            rlsContextService.setTenant();
             authorizationService.requireAuthenticated();
             authorizationService.requireRole(RoleName.PARTICIPANT);
 
@@ -128,8 +136,10 @@ public class GapProfileService {
         }
     }
 
+    @Transactional(readOnly = true)
     public GapProfileResponse getGapProfile(Long gapProfileId) {
         try {
+            rlsContextService.setTenant();
             authorizationService.requireAuthenticated();
 
             CurrentUser currentUser = authorizationService.currentUser();
