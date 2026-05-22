@@ -1,0 +1,35 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: bachelor-project-postgres
+    environment:
+      POSTGRES_DB: bachelor_project_db
+      POSTGRES_USER: annabelle
+      POSTGRES_PASSWORD: bachelor_project_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - bachelor_project_postgres_data:/var/lib/postgresql/data
+      - ./schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./seed-demo-data.sql:/docker-entrypoint-initdb.d/02-seed-demo-data.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U annabelle -d bachelor_project_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  backend:
+    build: .
+    container_name: bachelor-project-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/bachelor_project_db
+      SPRING_DATASOURCE_USERNAME: annabelle
+      SPRING_DATASOURCE_PASSWORD: bachelor_project_password
+    ports:
+      - "8080:8080"
+
+volumes:
+  bachelor_project_postgres_data:

@@ -1,11 +1,153 @@
-# Backend
+# Bachelor Project Backend
 
-This is the backend project for the Bachelor Project.
+Spring Boot backend for the questionnaire demonstrator. The backend uses PostgreSQL, JPA, and PostgreSQL row-level security (RLS) for tenant isolation.
 
-Built with Spring Boot.
+The frontend authenticates demo users through the `X-Debug-User` HTTP header. There is no password login flow in the demonstrator.
 
-## Getting Started
+## Demo Users
 
-1. Ensure Java 17 is installed.
-2. Configure PostgreSQL in `src/main/resources/application.properties`.
-3. Run `mvn spring-boot:run` to start the application.
+Use these emails in the frontend login field:
+
+| Email | Role | Tenant |
+| --- | --- | --- |
+| `alice@example.com` | `PARTICIPANT` | Tenant A |
+| `bob@example.com` | `PARTICIPANT` | Tenant B |
+| `manager@example.com` | `MANAGER` | Tenant A |
+| `instructor@example.com` | `INSTRUCTOR` | Tenant A |
+
+Seeded participant flow:
+
+- Alice has already submitted `Default Security Questionnaire` and can submit `Tenant A Practice Questionnaire`.
+- Bob has already submitted `Tenant B Security Form` and can submit `Tenant B Practice Questionnaire`.
+
+## Option A: Run Everything With Docker Desktop
+
+Requirements:
+
+- Docker Desktop
+- The backend repository cloned locally
+
+From the backend repository root:
+
+```bash
+docker compose up --build
+```
+
+This starts:
+
+- PostgreSQL on `localhost:5432`
+- Spring Boot backend on `http://localhost:8080`
+
+On first startup, Docker initializes PostgreSQL with:
+
+- `schema.sql`: tables, constraints, and RLS policies
+- `seed-demo-data.sql`: tenants, users, roles, questionnaires, responses, and gap profiles
+
+The Docker setup uses the official `postgres:16` image for a stable local demonstrator setup.
+
+Database connection details:
+
+```text
+Database: bachelor_project_db
+Username: annabelle
+Password: bachelor_project_password
+Host: localhost
+Port: 5432
+```
+
+Health check:
+
+```bash
+curl http://localhost:8080/api/health
+```
+
+To reset the Docker database and reload the schema/seed files:
+
+```bash
+docker compose down -v
+docker compose up --build
+```
+
+## Option B: Run With Local PostgreSQL
+
+Requirements:
+
+- Java 17
+- Maven 3.9 or newer
+- PostgreSQL
+- A database user that can create tables and policies
+
+Create the database:
+
+```bash
+createdb -U annabelle bachelor_project_db
+```
+
+Load the schema and seed data:
+
+```bash
+psql -U annabelle -d bachelor_project_db -f schema.sql
+psql -U annabelle -d bachelor_project_db -f seed-demo-data.sql
+```
+
+Start the backend:
+
+```bash
+mvn spring-boot:run
+```
+
+The backend runs at:
+
+```text
+http://localhost:8080
+```
+
+If your local PostgreSQL credentials differ from the defaults, set environment variables before starting Spring Boot:
+
+```bash
+SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/bachelor_project_db
+SPRING_DATASOURCE_USERNAME=your_user
+SPRING_DATASOURCE_PASSWORD=your_password
+mvn spring-boot:run
+```
+
+On PowerShell:
+
+```powershell
+$env:SPRING_DATASOURCE_URL="jdbc:postgresql://localhost:5432/bachelor_project_db"
+$env:SPRING_DATASOURCE_USERNAME="your_user"
+$env:SPRING_DATASOURCE_PASSWORD="your_password"
+mvn spring-boot:run
+```
+
+## RLS Notes
+
+The protected tables are:
+
+- `questionnaires`
+- `responses`
+- `gap_profiles`
+
+Their RLS policies compare each row's `tenant_id` against:
+
+```sql
+current_setting('app.current_tenant_id', true)::uuid
+```
+
+The backend sets that value per request in `RlsContextService` using the current mock-authenticated user's tenant. The seed file also sets this value before inserting tenant-scoped rows.
+
+## Useful API Checks
+
+With the backend running:
+
+```bash
+curl -H "X-Debug-User: alice@example.com" http://localhost:8080/api/auth/me
+curl -H "X-Debug-User: instructor@example.com" http://localhost:8080/api/questionnaire
+```
+
+## Files for Reproducibility
+
+- `schema.sql`: database schema, constraints, and RLS policies
+- `seed-demo-data.sql`: deterministic demo data
+- `docker-compose.yaml`: PostgreSQL plus backend service for Docker Desktop
+- `Dockerfile`: backend image build

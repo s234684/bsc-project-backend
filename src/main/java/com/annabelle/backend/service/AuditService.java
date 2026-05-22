@@ -14,6 +14,8 @@ import com.annabelle.backend.security.CurrentUser;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.stream.Collectors;
 
@@ -36,6 +38,7 @@ public class AuditService {
         this.request = request;
     }
 
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void logSuccess(User user, AuditAction action) {
         if (user == null) {
             throw new ApiException(HttpStatus.UNAUTHORIZED, "Authenticated user is required for successful audit events");
@@ -52,6 +55,7 @@ public class AuditService {
         );
     }
 
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void logDenied(User user, AuditAction action, String reason) {
         save(
                 user,
@@ -64,6 +68,7 @@ public class AuditService {
         );
     }
 
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void logDenied(CurrentUser currentUser, AuditAction action, String reason) {
         if (currentUser == null) {
             logDeniedAnonymous(action, reason);
@@ -95,6 +100,7 @@ public class AuditService {
         );
     }
 
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void logDeniedAnonymous(AuditAction action, String reason) {
         save(
                 null,
