@@ -8,6 +8,7 @@
 --   bob@example.com         PARTICIPANT
 --   manager@example.com     MANAGER
 --   instructor@example.com  INSTRUCTOR
+--   platformadmin@example.com PLATFORM_ADMIN
 
 BEGIN;
 
@@ -48,7 +49,9 @@ VALUES
   (1, '2ed04e60-2033-441b-aa15-804420c74cbf', 'alice@example.com', '123456'),
   (2, '2ed04e60-2033-441b-aa15-804420c74cbf', 'manager@example.com', 'prout'),
   (3, '7b612225-406e-4962-8d1e-ebb25a4a5df8', 'bob@example.com', 'zizi'),
-  (4, '2ed04e60-2033-441b-aa15-804420c74cbf', 'instructor@example.com', 'iaminstructor')
+  (4, '2ed04e60-2033-441b-aa15-804420c74cbf', 'instructor@example.com', 'iaminstructor'),
+  (5, null, 'platformadmin@example.com', 'hey')
+
 ON CONFLICT (id) DO UPDATE
 SET
   tenant_id = EXCLUDED.tenant_id,
@@ -60,7 +63,8 @@ VALUES
   (4, 1),
   (2, 2),
   (4, 3),
-  (3, 4)
+  (3, 4),
+  (1, 5)
 ON CONFLICT (role_id, user_id) DO NOTHING;
 
 -- Tenant A questionnaires

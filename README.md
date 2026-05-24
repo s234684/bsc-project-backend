@@ -14,6 +14,7 @@ Use these emails in the frontend login field:
 | `bob@example.com` | `PARTICIPANT` | Tenant B |
 | `manager@example.com` | `MANAGER` | Tenant A |
 | `instructor@example.com` | `INSTRUCTOR` | Tenant A |
+| `platformadmin@example.com` | `PLATFORM_ADMIN` | None |
 
 Seeded participant flow:
 
