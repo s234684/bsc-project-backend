@@ -4,16 +4,18 @@ services:
     container_name: bachelor-project-postgres
     environment:
       POSTGRES_DB: bachelor_project_db
-      POSTGRES_USER: annabelle
-      POSTGRES_PASSWORD: bachelor_project_password
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: bachelor_project_admin_password
     ports:
       - "5432:5432"
     volumes:
       - bachelor_project_postgres_data:/var/lib/postgresql/data
+      - ./00-create-app-user.sql:/docker-entrypoint-initdb.d/00-create-app-user.sql:ro
       - ./schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
       - ./seed-demo-data.sql:/docker-entrypoint-initdb.d/02-seed-demo-data.sql:ro
+      - ./03-app-grants.sql:/docker-entrypoint-initdb.d/03-app-grants.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U annabelle -d bachelor_project_db"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d bachelor_project_db"]
       interval: 5s
       timeout: 5s
       retries: 20

@@ -1,6 +1,7 @@
 package com.annabelle.backend.security;
 
 import com.annabelle.backend.exception.ApiException;
+import com.annabelle.backend.model.RoleName;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import org.springframework.http.HttpStatus;
@@ -21,7 +22,16 @@ public class RlsContextService {
     public void setTenant() {
         CurrentUser currentUser = currentUserHolder.getCurrentUser();
 
-        if (currentUser == null || currentUser.getTenantId() == null) {
+        if (currentUser == null) {
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "Authentication required");
+        }
+
+        if (currentUser.hasRole(RoleName.PLATFORM_ADMIN)) {
+            throw new ApiException(HttpStatus.FORBIDDEN,
+                    "Access denied: platform administrators cannot access tenant data");
+        }
+
+        if (currentUser.getTenantId() == null) {
             throw new ApiException(HttpStatus.UNAUTHORIZED, "No current tenant");
         }
 

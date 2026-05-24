@@ -40,8 +40,10 @@ This starts:
 
 On first startup, Docker initializes PostgreSQL with:
 
+- `00-create-app-user.sql`: non-superuser application role for Spring Boot
 - `schema.sql`: tables, constraints, and RLS policies
 - `seed-demo-data.sql`: tenants, users, roles, questionnaires, responses, and gap profiles
+- `03-app-grants.sql`: runtime privileges, including append-only `audit_log` access
 
 The Docker setup uses the official `postgres:16` image for a stable local demonstrator setup.
 
@@ -54,6 +56,10 @@ Password: bachelor_project_password
 Host: localhost
 Port: 5432
 ```
+
+The Docker database is initialized by the `postgres` superuser, but the backend
+connects as the non-superuser `annabelle` role. This keeps the demonstrator's
+append-only audit-log controls meaningful at runtime.
 
 Health check:
 
@@ -135,6 +141,18 @@ current_setting('app.current_tenant_id', true)::uuid
 ```
 
 The backend sets that value per request in `RlsContextService` using the current mock-authenticated user's tenant. The seed file also sets this value before inserting tenant-scoped rows.
+
+## Audit Log Append-Only Notes
+
+The `audit_log` table is append-only for the `annabelle` application role:
+
+- `annabelle` has `SELECT` and `INSERT` on `audit_log`
+- `UPDATE`, `DELETE`, and `TRUNCATE` privileges are revoked from `annabelle`
+- row-level triggers block `UPDATE` and `DELETE`
+- a statement-level trigger blocks `TRUNCATE` for non-superusers
+
+PostgreSQL superusers can still bypass trigger-based `TRUNCATE`. The Docker
+demonstrator avoids that path by running the backend as non-superuser `annabelle`.
 
 ## Useful API Checks
 
